@@ -153,7 +153,136 @@ Ghi rất nhanh, đọc theo key nhanh.
 Nhất quán mạnh trên từng dòng, tích hợp tốt với Hadoop/Spark/Hive.
 
 Nhược điểm:
-
 Chỉ truy vấn hiệu quả theo row key, không có JOIN hay SQL phức tạp (có thể thêm Apache Phoenix để dùng SQL).
 Thiết kế row key rất quan trọng: key tăng dần (như timestamp) dễ gây hotspot vì mọi ghi dồn vào một region.
 Vận hành phức tạp (HDFS + ZooKeeper + HBase).
+
+1. Airflow là gì?
+
+Apache Airflow là nền tảng mã nguồn mở để lập lịch, điều phối (orchestrate) và giám sát các quy trình công việc (workflow), đặc biệt là các pipeline dữ liệu. Ban đầu do Airbnb phát triển, sau đó trở thành dự án của Apache.
+
+Ý tưởng cốt lõi: "Workflow as Code": bạn định nghĩa quy trình bằng code Python thay vì kéo thả hay file cấu hình. Nhờ vậy có thể quản lý phiên bản bằng Git, tái sử dụng, kiểm thử và sinh workflow động.
+
+Airflow không phải là công cụ xử lý dữ liệu. Nó chỉ ra lệnh và theo dõi: "chạy job Spark lúc 2h sáng, xong thì chạy job Hive, lỗi thì gửi email". Việc xử lý thực sự do Spark, Hive, SQL, Python... đảm nhiệm.
+
+Vị trí trong hệ sinh thái: Hadoop/HBase lo lưu trữ và xử lý, còn Airflow lo điều phối thứ tự và thời điểm các tác vụ đó chạy.
+
+2. Các khái niệm cốt lõi
+DAG (Directed Acyclic Graph)
+
+Đồ thị có hướng không chu trình, biểu diễn toàn bộ workflow.
+
+Có hướng: task A chạy trước thì B mới chạy sau.
+Không chu trình: không có vòng lặp (A → B → A), đảm bảo workflow luôn kết thúc.
+Task
+
+Một đơn vị công việc trong DAG (chạy một script, một câu SQL, gọi một API...).
+
+Operator
+
+"Khuôn mẫu" để tạo task. Một số loại thường gặp:
+
+BashOperator: chạy lệnh shell.
+PythonOperator: chạy hàm Python.
+SparkSubmitOperator, HiveOperator, PostgresOperator...: làm việc với hệ thống ngoài.
+Sensor: loại operator đặc biệt chờ một điều kiện xảy ra (ví dụ file xuất hiện trên HDFS, partition được tạo).
+Task Instance
+
+Một lần chạy cụ thể của một task, gắn với một thời điểm lập lịch. Có các trạng thái: queued, running, success, failed, retry, skipped...
+DAG Run
+Một lần chạy cụ thể của toàn bộ DAG.
+Scheduler, Executor, Worker, Webserver, Metadata DB
+Các thành phần kiến trúc, xem phần dưới.
+
+4. Kiến trúc và cách hoạt động chi tiết
+4.1. Các thành phần
+
+Scheduler (bộ lập lịch):
+
+Trái tim của Airflow. Liên tục đọc các file DAG, xác định DAG nào đến giờ chạy, task nào đủ điều kiện (các task phụ thuộc đã thành công).
+Đẩy task đủ điều kiện sang Executor.
+
+Executor:
+Quyết định task được chạy như thế nào và ở đâu. Một số loại:
+
+LocalExecutor: chạy song song nhiều tiến trình trên một máy.
+CeleryExecutor: phân phối task cho nhiều worker qua message queue (Redis/RabbitMQ).
+KubernetesExecutor: mỗi task chạy trong một Pod riêng, tự co giãn.
+
+Worker:
+Tiến trình thực sự chạy code của task.
+
+Metadata Database (PostgreSQL/MySQL):
+Lưu toàn bộ trạng thái: DAG, DAG Run, Task Instance, biến, kết nối, lịch sử. Mọi thành phần giao tiếp với nhau thông qua DB này.
+
+Webserver (giao diện web):
+Cho phép xem DAG, bật/tắt, kích hoạt chạy tay, xem log, xem biểu đồ Gantt, chạy lại task lỗi.
+
+DAG Directory (thư mục DAG):
+Nơi chứa các file .py, Scheduler quét định kỳ để nhận DAG mới/cập nhật.
+
+4.2. Luồng hoạt động
+ File DAG (.py)
+      │ quét & phân tích
+      ▼
+ ┌──────────┐   ghi/đọc trạng thái   ┌─────────────┐
+ │Scheduler │◄──────────────────────►│ Metadata DB │
+ └────┬─────┘                        └──────▲──────┘
+      │ đẩy task đủ điều kiện               │
+      ▼                                     │ cập nhật
+ ┌──────────┐    giao việc    ┌─────────┐   │ trạng thái
+ │ Executor │────────────────►│ Worker  │───┘
+ └──────────┘                 └─────────┘
+                                   │ chạy task (Spark, SQL, ...)
+      Webserver ◄── đọc DB ── hiển thị UI cho người dùng
+
+Từng bước:
+
+Scheduler phân tích file DAG và lưu cấu trúc vào Metadata DB.
+Đến thời điểm lịch, Scheduler tạo một DAG Run và các Task Instance tương ứng.
+Task nào không còn phụ thuộc chưa xong sẽ được chuyển sang trạng thái queued và giao cho Executor.
+Executor giao task cho Worker, Worker chạy và cập nhật trạng thái (running → success/failed).
+Nếu failed và còn lượt thử lại, task sang retry rồi chạy lại sau khoảng chờ.
+Khi mọi task xong, DAG Run được đánh dấu hoàn thành. Người dùng theo dõi toàn bộ qua Webserver.
+5. Các tính năng quan trọng
+
+Lập lịch linh hoạt: dùng cron (0 2 * * *), preset (@daily, @hourly), hoặc lịch tùy chỉnh. Mỗi DAG Run gắn với một data interval (khoảng dữ liệu cần xử lý), giúp xử lý đúng dữ liệu của ngày tương ứng.
+
+Backfill & Catchup: chạy bù các khoảng thời gian trong quá khứ. catchup=True sẽ tạo các lần chạy cho mọi khoảng bị bỏ lỡ kể từ start_date.
+
+Retry, timeout, alert: tự thử lại khi lỗi, giới hạn thời gian chạy, gửi email/Slack khi thất bại.
+
+XCom: cơ chế trao đổi dữ liệu nhỏ giữa các task (ví dụ đường dẫn file, một con số). Không dùng để truyền dữ liệu lớn.
+
+Variables & Connections: lưu cấu hình và thông tin kết nối (host, mật khẩu) tập trung, tránh viết cứng trong code.
+
+Pool & Concurrency: giới hạn số task chạy đồng thời để không quá tải hệ thống (ví dụ tối đa 5 task cùng truy cập một database).
+
+TaskFlow API (Airflow 2+): viết DAG gọn hơn bằng decorator @task, XCom được xử lý ngầm.
+6. Ví dụ ứng dụng với Hadoop
+
+Pipeline phân tích log hàng ngày:
+
+chờ file log lên HDFS (Sensor)
+        ↓
+chạy job Spark làm sạch dữ liệu
+        ↓
+nạp kết quả vào bảng Hive / HBase
+        ↓
+gửi báo cáo email
+
+Airflow đảm bảo các bước chạy đúng thứ tự, đúng giờ, tự thử lại khi lỗi và có giao diện theo dõi.
+
+7. Ưu và nhược điểm
+
+Ưu điểm:
+Workflow bằng Python: linh hoạt, dễ version control, dễ kiểm thử.
+Giao diện trực quan để giám sát và chạy lại.
+Hệ sinh thái operator/provider rất phong phú (AWS, GCP, Spark, dbt...).
+Mở rộng được từ một máy đến hàng trăm worker.
+Nhược điểm:
+Không phù hợp cho streaming/thời gian thực, vì thiết kế cho batch theo lịch.
+Scheduler có độ trễ nhất định, không dành cho task cần phản ứng trong mili-giây.
+Cài đặt, vận hành và tinh chỉnh khá phức tạp ở quy mô lớn.
+Không truyền dữ liệu lớn giữa các task qua XCom được, phải dùng lưu trữ ngoài (HDFS, S3...).
+Code DAG viết không tốt (ví dụ xử lý nặng ngay lúc parse file) sẽ làm Scheduler chậm.
