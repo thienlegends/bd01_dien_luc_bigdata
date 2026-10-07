@@ -1,0 +1,159 @@
+Hadoop là gì?
+
+Apache Hadoop là một framework mã nguồn mở để lưu trữ và xử lý dữ liệu rất lớn (Big Data) trên một cụm nhiều máy tính (cluster) thông thường, thay vì một siêu máy tính đắt tiền.
+
+Ý tưởng cốt lõi:
+
+Chia nhỏ dữ liệu thành nhiều phần và lưu rải rác trên nhiều máy.
+Đưa code đến nơi có dữ liệu (data locality) thay vì kéo dữ liệu về xử lý, vì chuyển code nhẹ hơn nhiều so với chuyển hàng TB dữ liệu qua mạng.
+Chấp nhận máy hỏng là chuyện bình thường, nên hệ thống tự sao lưu và tự phục hồi.
+
+Hadoop gồm 3 thành phần chính: HDFS (lưu trữ), YARN (quản lý tài nguyên) và MapReduce (xử lý).
+
+1.1. HDFS (Hadoop Distributed File System)
+
+Đây là hệ thống file phân tán, theo kiến trúc master/slave.
+
+NameNode (master):
+
+Lưu metadata: cây thư mục, tên file, file nào gồm những block nào, block nằm ở DataNode nào.
+Không lưu dữ liệu thật.
+
+DataNode (slave):
+
+Lưu các block dữ liệu thật (mặc định 128 MB/block).
+Gửi heartbeat định kỳ (mặc định ~3 giây) và block report cho NameNode.
+
+Cách hoạt động:
+
+Ghi file: Client hỏi NameNode, NameNode chỉ định các DataNode. File được cắt thành các block, ghi lần lượt qua một "pipeline" các DataNode. Mỗi block được nhân bản (replication) 3 bản mặc định, đặt ở các máy/rack khác nhau.
+Đọc file: Client hỏi NameNode vị trí các block, rồi đọc trực tiếp từ DataNode (gần nhất), không đi qua NameNode.
+Chịu lỗi: Nếu DataNode im lặng quá lâu, NameNode coi nó đã chết và ra lệnh sao chép các block bị thiếu sang máy khác để đủ 3 bản.
+Secondary NameNode / Standby NameNode: hỗ trợ gộp log metadata (checkpoint) hoặc dự phòng (HA) khi NameNode lỗi.
+
+Đặc điểm: ghi một lần, đọc nhiều lần (write-once, read-many), tối ưu cho đọc tuần tự file lớn, nhưng không phù hợp cho truy cập ngẫu nhiên độ trễ thấp.
+
+1.2. YARN (Yet Another Resource Negotiator)
+
+YARN là "hệ điều hành" của cụm, phụ trách phân chia CPU/RAM cho các ứng dụng.
+
+ResourceManager (master): quản lý tài nguyên toàn cụm, lên lịch (scheduler).
+NodeManager (trên mỗi máy): quản lý tài nguyên máy đó, chạy các container.
+ApplicationMaster (mỗi ứng dụng một cái): thương lượng tài nguyên với ResourceManager và điều phối các task của ứng dụng.
+
+Luồng chạy: Client gửi job → ResourceManager cấp container đầu tiên cho ApplicationMaster → ApplicationMaster xin thêm container → NodeManager chạy các task trong container → xong thì giải phóng tài nguyên.
+
+1.3. MapReduce
+
+Mô hình lập trình xử lý song song gồm các giai đoạn:
+
+Input Split: chia dữ liệu đầu vào thành các phần, mỗi phần cho một Mapper.
+Map: mỗi Mapper đọc dữ liệu và sinh ra các cặp (key, value).
+Shuffle & Sort: các cặp được gom nhóm theo key và chuyển đến đúng Reducer.
+Reduce: Reducer tổng hợp các value của cùng một key và ghi kết quả ra HDFS.
+
+Ví dụ đếm từ (WordCount):
+
+Map: câu "a b a" → (a,1) (b,1) (a,1)
+Shuffle: gom thành a → [1,1], b → [1]
+Reduce: cộng lại → (a,2) (b,1)
+
+Lưu ý: ngày nay MapReduce ít được dùng trực tiếp, người ta thường chạy Spark, Hive, Tez, Flink trên nền HDFS + YARN vì nhanh hơn nhiều.
+
+2. HBase là gì?
+
+Apache HBase là cơ sở dữ liệu NoSQL dạng cột (wide-column), phân tán, chạy trên HDFS, được mô phỏng theo Google Bigtable.
+
+HBase giải quyết điểm yếu của HDFS: HDFS tốt cho đọc tuần tự file lớn nhưng không cho phép đọc/ghi ngẫu nhiên từng bản ghi nhanh hay cập nhật từng dòng. HBase cho phép truy cập theo row key với độ trễ thấp (mili-giây) trên hàng tỷ dòng, hàng triệu cột.
+
+2.1. Mô hình dữ liệu
+
+Có thể hình dung HBase là một bản đồ đa chiều, đã sắp xếp:
+
+(RowKey, ColumnFamily:Qualifier, Timestamp) → Value
+
+Table: tập hợp các hàng.
+Row Key: khóa chính duy nhất, dữ liệu luôn sắp xếp theo row key (theo thứ tự byte).
+Column Family: nhóm cột, phải khai báo khi tạo bảng; mỗi family lưu thành file riêng trên HDFS.
+Column Qualifier: tên cột cụ thể trong family, có thể thêm tùy ý lúc ghi dữ liệu (schema linh hoạt).
+Cell: giao điểm của row + column, lưu giá trị cùng timestamp.
+Version: mỗi cell có thể lưu nhiều phiên bản theo timestamp.
+
+2.2. Kiến trúc
+
+HMaster:
+
+Quản lý metadata, tạo/xóa/sửa bảng.
+Phân phối các region cho RegionServer và cân bằng tải.
+Không nằm trong đường đọc/ghi dữ liệu nên không là nút thắt.
+
+RegionServer:
+
+Phục vụ đọc/ghi thực tế.
+Mỗi bảng được chia theo khoảng row key thành nhiều Region. Mỗi region do đúng một RegionServer phục vụ. Khi region quá lớn, nó tự split thành hai.
+
+ZooKeeper:
+
+Điều phối cụm: bầu HMaster chính, theo dõi RegionServer sống/chết, lưu vị trí của bảng meta.
+
+HDFS:
+
+Nơi lưu trữ file dữ liệu thật và đảm bảo bền vững qua nhân bản.
+
+Trong mỗi RegionServer, mỗi region có các thành phần:
+
+WAL (Write-Ahead Log): nhật ký ghi trước, chống mất dữ liệu khi máy sập.
+MemStore: bộ đệm trong RAM (mỗi column family một cái), lưu dữ liệu mới ghi và đã sắp xếp.
+HFile: file bất biến trên HDFS, lưu dữ liệu đã được flush từ MemStore.
+BlockCache: cache trong RAM cho dữ liệu đọc thường xuyên.
+2.3. Luồng ghi (Write path)
+Client tìm RegionServer phụ trách row key (hỏi ZooKeeper → bảng hbase:meta → RegionServer).
+Dữ liệu được ghi vào WAL trước (để bền vững).
+Sau đó ghi vào MemStore (RAM), rồi trả về thành công cho client.
+Khi MemStore đầy (mặc định ~128 MB), nó được flush thành một HFile mới trên HDFS.
+
+Vì ghi chủ yếu là ghi nối tiếp (append) vào log và RAM, tốc độ ghi rất nhanh.
+
+2.4. Luồng đọc (Read path)
+Client tìm đúng RegionServer như trên.
+RegionServer tìm dữ liệu ở BlockCache, MemStore và các HFile (dùng Bloom filter và chỉ mục để bỏ qua file không chứa key cần tìm).
+Hợp nhất kết quả từ các nguồn, chọn phiên bản mới nhất rồi trả về.
+2.5. Compaction
+
+Theo thời gian sẽ có rất nhiều HFile nhỏ làm đọc chậm, nên HBase gộp chúng lại:
+
+Minor compaction: gộp một số HFile nhỏ thành file lớn hơn.
+Major compaction: gộp toàn bộ HFile của một region thành một file, đồng thời xóa hẳn dữ liệu đã đánh dấu xóa (tombstone) và các version quá hạn.
+
+Khi xóa, HBase không xóa ngay mà ghi một dấu "đã xóa", việc dọn dẹp thật diễn ra lúc major compaction.
+
+2.6. Khi RegionServer hỏng
+
+ZooKeeper phát hiện máy chết → HMaster giao các region của máy đó cho RegionServer khác → máy mới phát lại (replay) WAL để khôi phục dữ liệu chưa kịp flush. Do dữ liệu nằm trên HDFS (đã nhân bản) nên không mất mát.
+
+3. Mối quan hệ giữa Hadoop và HBase
+        Ứng dụng
+           │
+   ┌───────▼────────┐
+   │     HBase      │  ← đọc/ghi ngẫu nhiên, thời gian thực
+   └───────┬────────┘
+           │ lưu file (HFile, WAL)
+   ┌───────▼────────┐
+   │      HDFS      │  ← lưu trữ phân tán, nhân bản
+   └────────────────┘
+   (YARN + MapReduce/Spark: xử lý batch)
+
+HBase là một thành phần nằm trong hệ sinh thái Hadoop, dùng HDFS làm tầng lưu trữ và ZooKeeper để điều phối.
+4. Ưu và nhược điểm của HBase
+
+Ưu điểm:
+
+Mở rộng ngang gần như tuyến tính (thêm máy là tăng dung lượng và thông lượng).
+Ghi rất nhanh, đọc theo key nhanh.
+Nhất quán mạnh trên từng dòng, tích hợp tốt với Hadoop/Spark/Hive.
+
+Nhược điểm:
+
+Chỉ truy vấn hiệu quả theo row key, không có JOIN hay SQL phức tạp (có thể thêm Apache Phoenix để dùng SQL).
+Thiết kế row key rất quan trọng: key tăng dần (như timestamp) dễ gây hotspot vì mọi ghi dồn vào một region.
+Vận hành phức tạp (HDFS + ZooKeeper + HBase).
