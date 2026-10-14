@@ -1,0 +1,44 @@
+1. Chọn công nghệ cho đồ án
+Backend: FastAPI
+Dùng Python xây API, lấy dữ liệu phụ tải, cung cấp dự báo, quản lý cảnh báo và gọi Airflow REST API.
+
+Frontend: Jinja2 + Chart.js
+Jinja2 tạo giao diện HTML; HTML/CSS/JavaScript xây dựng trang; Chart.js vẽ biểu đồ phụ tải thực tế và dự báo.
+
+Vai trò
+FastAPI	Backend, xử lý API
+Jinja2	Tạo giao diện HTML
+HTML/CSS/JavaScript	Bố cục, màu sắc, tương tác
+Chart.js	Vẽ biểu đồ
+
+2. Web cần có những màn hình nào?
+Theo đề cương dự án, nên triển khai năm màn hình chính.
+1. Tổng quan phụ tải điện
+Hiển thị biểu đồ phụ tải 7 ngày, dự báo 24 giờ tới, MAPE và số khách hàng mất tín hiệu.
+
+2. Danh sách cảnh báo
+Hiển thị khách hàng bất thường, loại cảnh báo, điểm bất thường và trạng thái xử lý.
+
+3. Xử lý cảnh báo
+Xem lịch sử tiêu thụ của khách hàng, xác nhận vi phạm hoặc bỏ qua và nhập ghi chú.
+
+4. Ảnh hưởng dữ liệu đến trễ
+So sánh các phiên bản dữ liệu và dự báo trước/sau khi nhận dữ liệu đến trễ.
+
+5. Quản trị hệ thống
+Theo dõi lịch sử chạy DAG của Airflow và kích hoạt chạy lại dự báo.
+
+3. Web kết nối với hệ thống Big Data như thế nào?
+Kafka
+  ↓
+Spark Structured Streaming
+  ↓
+Delta Lake trên HDFS
+  ↓
+Các bảng Gold / dữ liệu cache
+  ↓
+FastAPI
+  ↓
+Jinja2 + Chart.js
+  ↓
+Người dùng trên trình duyệt
