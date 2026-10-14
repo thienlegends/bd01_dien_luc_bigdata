@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Tổng quan phụ tải{% endblock %}
+{% block content %}
+<h1>Tổng quan phụ tải điện</h1>
+<section class="kpi">
+  <div class="card k"><div class="nhan">MAPE 7 ngày qua</div><div class="so" id="kpi-mape">–</div>
+    <div class="phu" id="kpi-mape-sub">&nbsp;</div></div>
+  <div class="card k"><div class="nhan">Khách hàng mất tín hiệu</div><div class="so" id="kpi-mat">–</div>
+    <div class="phu">theo ngày cảnh báo mới nhất</div></div>
+  <div class="card k"><div class="nhan">Cảnh báo mới</div><div class="so" id="kpi-moi">–</div>
+    <div class="phu"><a href="/canh-bao">xem danh sách</a></div></div>
+  <div class="card k"><div class="nhan">Mốc dữ liệu mới nhất</div><div class="so so-nho" id="kpi-moc">–</div>
+    <div class="phu" id="kpi-mohinh">&nbsp;</div></div>
+</section>
+<section class="card">
+  <h2>Phụ tải thực tế 7 ngày và dự báo 24 giờ tới</h2>
+  <div class="chart-box tall"><canvas id="bieu-do"></canvas></div>
+  <p class="ghi-chu">Đường liền: thực tế (kW, tổng toàn hệ thống). Đường đứt: dự báo. Vùng tô: khoảng tin cậy từ phân vị residual.</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/tong_quan.js"></script>{% endblock %}
