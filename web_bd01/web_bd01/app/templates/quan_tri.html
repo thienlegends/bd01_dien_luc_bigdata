@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Quản trị hệ thống{% endblock %}
+{% block content %}
+<h1>Quản trị hệ thống (Airflow)</h1>
+<section class="card">
+  <h2>Chạy lại dự báo thủ công</h2>
+  <p>Kích hoạt DAG <code>dl_pipeline_hang_gio</code> để chạy lại toàn bộ chuỗi tạo gold, đặc trưng và dự báo.</p>
+  <button id="btn-du-bao" class="btn nguy">Chạy lại dự báo</button>
+  <span id="kq-du-bao" class="ghi-chu"></span>
+</section>
+<div id="dags"></div>
+<section class="card">
+  <h2>Đồng bộ cache</h2>
+  <p>Kéo cache Parquet mới nhất từ HDFS về máy chạy web (<code>scripts/dong_bo_cache.sh</code>).</p>
+  <button id="btn-cache" class="btn">Đồng bộ cache</button>
+  <span id="kq-cache" class="ghi-chu"></span>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/quan_tri.js"></script>{% endblock %}

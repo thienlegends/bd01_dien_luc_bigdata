@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Danh sách cảnh báo{% endblock %}
+{% block content %}
+<h1>Cảnh báo bất thường</h1>
+<section class="card">
+  <div class="loc">
+    <label>Loại
+      <select id="f-loai">
+        <option value="">Tất cả</option>
+        <option value="sut_giam">Sụt giảm</option>
+        <option value="tang_vot">Tăng vọt</option>
+        <option value="lech_cum">Lệch cụm</option>
+        <option value="mat_tin_hieu">Mất tín hiệu</option>
+      </select></label>
+    <label>Trạng thái
+      <select id="f-tt">
+        <option value="">Tất cả</option>
+        <option value="moi">Mới</option>
+        <option value="dang_kiem_tra">Đang kiểm tra</option>
+        <option value="xac_nhan">Đã xác nhận</option>
+        <option value="bo_qua">Bỏ qua</option>
+      </select></label>
+    <label>Điểm tối thiểu
+      <input id="f-diem" type="number" min="0" max="1" step="0.05" value="0"></label>
+    <button id="btn-loc" class="btn">Lọc</button>
+    <span id="dem" class="ghi-chu"></span>
+  </div>
+  <div class="cuon">
+    <table id="bang">
+      <thead><tr><th>Khách hàng</th><th>Ngày phát hiện</th><th>Loại</th><th>Điểm</th><th>Trạng thái</th><th>Bằng chứng</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="ghi-chu">Nhấn vào một dòng để xem lịch sử tiêu thụ và xử lý cảnh báo.</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/canh_bao.js"></script>{% endblock %}

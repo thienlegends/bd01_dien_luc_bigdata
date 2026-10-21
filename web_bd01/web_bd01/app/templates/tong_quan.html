@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Tổng quan phụ tải{% endblock %}
+{% block content %}
+<h1>BD01 – Giám sát và dự báo phụ tải điện</h1>
+<section class="card project-intro">
+  <div>
+    <strong>Đề tài Big Data điện lực</strong>
+    <p class="ghi-chu">Dữ liệu công tơ 15 phút (UCI Electricity Load Diagrams 2011–2014) · HDFS lưu trữ · Spark xử lý · Delta Lake quản lý phiên bản · Kafka streaming · Airflow điều phối.</p>
+  </div>
+  <div id="che-do-du-lieu" class="status-pill">Đang kiểm tra dữ liệu…</div>
+</section>
+<section class="card">
+  <div class="status-heading"><h2>Tình trạng pipeline</h2><button id="btn-lam-moi-trang-thai" class="btn btn-nho">Làm mới</button></div>
+  <div id="tinh-trang-pipeline" class="status-grid"><div class="ghi-chu">Đang kiểm tra cache và Airflow…</div></div>
+</section>
+<section class="kpi">
+  <div class="card k"><div class="nhan">MAPE 7 ngày qua</div><div class="so" id="kpi-mape">–</div>
+    <div class="phu" id="kpi-mape-sub">&nbsp;</div></div>
+  <div class="card k"><div class="nhan">Khách hàng mất tín hiệu</div><div class="so" id="kpi-mat">–</div>
+    <div class="phu">theo ngày cảnh báo mới nhất</div></div>
+  <div class="card k"><div class="nhan">Cảnh báo mới</div><div class="so" id="kpi-moi">–</div>
+    <div class="phu"><a href="/canh-bao">xem danh sách</a></div></div>
+  <div class="card k"><div class="nhan">Mốc dữ liệu mới nhất</div><div class="so so-nho" id="kpi-moc">–</div>
+    <div class="phu" id="kpi-mohinh">&nbsp;</div></div>
+</section>
+<section class="card">
+  <h2>Phụ tải thực tế 7 ngày và dự báo 24 giờ tới</h2>
+  <div class="chart-box tall"><canvas id="bieu-do"></canvas></div>
+  <p class="ghi-chu">Đường liền: thực tế (kW, tổng toàn hệ thống). Đường đứt: dự báo. Vùng tô: khoảng tin cậy từ phân vị residual.</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/tong_quan.js"></script>{% endblock %}

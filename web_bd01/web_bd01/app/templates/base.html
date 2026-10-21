@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Giám sát phụ tải điện{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Chart.js: ưu tiên file nội bộ static/vendor/chart.umd.min.js (cụm không có Internet), nếu không có thì dùng CDN -->
+  <script src="/static/vendor/chart.umd.min.js"></script>
+  <script>window.Chart || document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/script>')</script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">⚡ Giám sát &amp; dự báo phụ tải</div>
+  <nav>
+    {% set muc = [('tong_quan','/','Tổng quan'),('canh_bao','/canh-bao','Cảnh báo'),('timetravel','/timetravel','Dữ liệu đến trễ'),('quan_tri','/quan-tri','Quản trị')] %}
+    {% for k, u, t in muc %}<a href="{{ u }}" class="{{ 'on' if trang == k else '' }}">{{ t }}</a>{% endfor %}
+  </nav>
+  <div class="cache">Cache: {{ cache_cap_nhat }}</div>
+</header>
+<main>
+  <div id="loi" class="loi" hidden></div>
+  {% block content %}{% endblock %}
+</main>
+<script src="/static/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
